@@ -22,18 +22,20 @@ def home():
     return render_template("home.html", user=current_user)
 
 @views.route('/delete-note',methods=['POST'])
+@login_required                       #теперь удялять можно только тем, кто зарегистрировался
 def delete_note():
     note = json.loads(request.data)
     noteId = note['noteId']
     note = Note.query.get(noteId)
-    if note:                        #отсутсвует проверка if note.user_id == current_user.id: (так что кто угодно может удалять заметки)
+    if note and note.user_id == current_user.id:     #теперь есть проверка if note.user_id == current_user.id: (только пользователь, к которому привязана заметка, может её удалить )
         db.session.delete(note)
         db.session.commit()
     return jsonify({})
 
-@views.route('home/note/<int:note_id>') #мало того что нет @login_required так еще и if note.user_id == current_user.id: нет!!!
-def view_note(note_id):                 #(кто угодно может получить доступ к ЛЮБОЙ заметке) ПРИМЕР: переходим по http://127.0.0.1:5000/home/note/1
-    note = db.session.get(Note, note_id)#и получаем что находится в этой заметке 
-    if note is None:
+@views.route('home/note/<int:note_id>')
+@login_required #теперь нужно регаться, чтобы смотреть заметки
+def view_note(note_id):                 
+    note = db.session.get(Note, note_id)
+    if note is None or note.user_id != current_user.id: #теперь только владелец заметки может её просматривать
         return jsonify({'error': 'not found'}), 404
     return jsonify({'id': note.id, 'data': note.data, 'owner': note.user_id})
