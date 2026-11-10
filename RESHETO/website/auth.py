@@ -15,11 +15,11 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        query = f"SELECT * FROM user WHERE email = '{email}' AND password = '{password}'" #сами склеиваем строчку(пользователь может ввести текст, а sql рассмотрит его как команду)
-        result = db.session.execute(text(query)).fetchone()
-
-        if result:
-            flash('Logged in successfully', category='success')
+        
+        result = User.query.filter_by(email=email).first()#filter_by не склеивает строку запроса, а передаёт email отдельно.
+                                                        #Поэтому даже если в email ввести SQL-код, база воспримет его как текст, а не как команду(как было до)
+        if result and check_password_hash(result.password, password): #check_password_hash здесь потому что теперь мы хэшируем то, что ввел пользователь
+            flash('Logged in successfully', category='success')       # и сравниваем с уже сохраненным хэшем, а не пароль с паролем напрямую как было раньше
             user = User.query.get(result.id)
             login_user(user, remember=True)
             return redirect(url_for('views.home'))
@@ -53,8 +53,8 @@ def sign_up():
         elif len(password1) < 5:
             flash('Passwords must be at least 5 characters long.',category='error')
         else:
-            new_user = User(email=email,first_name=first_name,password=password1) #пароль хранится просто как есть, не хэшируется ничё кароче с ним не делается 
-            db.session.add(new_user)                                              #тепер если заполучить базу данных можно спокойненько зайти на акк и украсть всю инфу оттуда
+            new_user = User(email=email,first_name=first_name,password=generate_password_hash(password1, method='scrypt') #пароль хранится теперь в захешированном виде: если получить доступ к базе данных,
+            db.session.add(new_user)                                                                                      #то нужно ещё расшифровать пароль,чтобы украсть данные с аккаунта (ну и сам аккаунт)
             db.session.commit()
             login_user(new_user,remember=True)
             flash('Account has been created',category="success")
